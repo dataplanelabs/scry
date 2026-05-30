@@ -55,9 +55,21 @@ chromium \
   --no-first-run --no-default-browser-check \
   --password-store=basic \
   --window-size="${WIN_W},${WIN_H}" --start-maximized \
+  --restore-last-session \
   $CHROME_EXTRA_FLAGS \
   about:blank >/tmp/chromium.log 2>&1 &
 CHROMIUM_PID=$!
+
+# Forward pod SIGTERM to Chromium and wait for its clean exit so cookies + session
+# state flush to /data before SIGKILL. Without this, a clean shutdown purges the
+# session-scoped login cookie and the next boot starts logged out. Paired with
+# --restore-last-session above, which re-adopts session cookies on every boot.
+term() {
+  kill -TERM "$CHROMIUM_PID" 2>/dev/null || true
+  wait "$CHROMIUM_PID" 2>/dev/null || true
+  exit 0
+}
+trap term TERM INT
 
 # Bridge 0.0.0.0:CDP_PORT -> 127.0.0.1:CDP_INTERNAL_PORT for the CDP client.
 # Hardened for a long-lived debugger WebSocket (trace 019e7733: the socket was
@@ -88,7 +100,10 @@ sleep 1
 websockify --web /usr/share/novnc "$NOVNC_PORT" "localhost:$VNC_PORT" \
   >/tmp/novnc.log 2>&1 &
 
-# Tie container life to Chromium: exit (→ restart) only if Chromium dies. The
-# CDP bridge and VNC stack are disposable; the browser session is the asset.
-wait "$CHROMIUM_PID"
+# Tie container life to Chromium: exit (→ restart) only if Chromium dies. Loop so
+# the TERM trap can fire, flush cookies, and exit cleanly instead of being
+# SIGKILLed. The CDP bridge and VNC stack are disposable; the session is the asset.
+while kill -0 "$CHROMIUM_PID" 2>/dev/null; do
+  wait "$CHROMIUM_PID" 2>/dev/null && break
+done
 echo "chromium exited; shutting down" >&2
