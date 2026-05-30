@@ -47,8 +47,8 @@ jobs:
         with:
           images: ghcr.io/dataplanelabs/scry
           tags: |
-            type=raw,value=${{ steps.tag.outputs.new_tag }},enable=${{ steps.tag.outputs.new_tag != '' }}
-            type=raw,value=latest,enable=${{ steps.tag.outputs.new_tag != '' }}
+            type=raw,value=${{ steps.tag.outputs.new_version }},enable=${{ steps.tag.outputs.new_version != '' }}
+            type=raw,value=latest,enable=${{ steps.tag.outputs.new_version != '' }}
             type=edge,branch=main
             type=sha
 
