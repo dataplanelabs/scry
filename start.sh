@@ -28,26 +28,24 @@ rm -f "$PROFILE"/Singleton* 2>/dev/null || true
 Xvfb "$DISP" -screen 0 "$SCREEN" -ac +extension RANDR >/tmp/xvfb.log 2>&1 &
 sleep 2
 
-# The one persistent Chromium. CDP binds loopback (M113 requires non-public
-# bind); socat re-exposes it on CDP_PORT. Stability flags (WHY each matters):
-#   --no-sandbox / --disable-dev-shm-usage : containers lack the namespaces and
-#       have a tiny /dev/shm; without these Chromium crashes on heavy pages.
+# The one persistent Chromium. Runs as a non-root uid WITH the sandbox enabled
+# (no --no-sandbox), so Google stops flagging the session as insecure; the node
+# must allow unprivileged user namespaces. CDP binds loopback (M113 requires a
+# non-public bind); socat re-exposes it on CDP_PORT. Flags (WHY each matters):
+#   --disable-dev-shm-usage : containers have a tiny /dev/shm; without this a
+#       heavy page can crash the renderer (we still mount a 2Gi /dev/shm too).
 #   --disable-gpu             : no GPU in the container; SwiftShader churn can
 #       wedge the renderer.
 #   --disable-background-timer-throttling / --disable-backgrounding-occluded-
 #       windows / --disable-renderer-backgrounding : a headful tab nobody is
 #       looking at gets throttled/suspended, which stalls CDP commands and
 #       drops the long-lived debugger socket. Keep the page hot.
-#   --no-zygote              : the zygote forking model is flaky under
-#       --no-sandbox in minimal containers; spawn renderers directly.
 chromium \
-  --no-sandbox \
   --disable-dev-shm-usage \
   --disable-gpu \
   --disable-background-timer-throttling \
   --disable-backgrounding-occluded-windows \
   --disable-renderer-backgrounding \
-  --no-zygote \
   --user-data-dir="$PROFILE" \
   --remote-debugging-port="$CDP_INTERNAL_PORT" \
   --remote-debugging-address=127.0.0.1 \

@@ -196,14 +196,14 @@ socat \
 ### 2. Chromium flags that reduce crashes / instability
 
 ```
---no-sandbox                              # required without host user namespaces (see Security)
 --disable-dev-shm-usage                   # avoid /dev/shm OOM crashes in containers
 --disable-gpu                             # no GPU in the container; software render
 --disable-background-timer-throttling     # don't throttle timers when "backgrounded"
 --disable-backgrounding-occluded-windows  # the headful window is always occluded → don't pause it
 --disable-renderer-backgrounding          # keep the renderer at full priority (we drive it via CDP)
---no-zygote                               # simpler process tree; fewer surprise child crashes
 ```
+
+The image runs Chromium as a **non-root uid (1000) with its renderer sandbox enabled** — there is **no `--no-sandbox`**. That requires the host/node to allow unprivileged user namespaces (`kernel.unprivileged_userns_clone=1`); on K8s set the pod `securityContext` to that uid and pre-own `PROFILE_DIR` (see Security). Dropping `--no-sandbox` also removes Chrome's "you are using an unsupported command-line flag" infobar that some sites (e.g. Google) react to.
 
 The three `*-background*` flags matter specifically because this is a *headful but never-foreground* browser: Chrome would otherwise treat the window as backgrounded and throttle/suspend it, which looks like instability to the agent.
 
@@ -228,5 +228,5 @@ A long-lived Chromium keeps the login partly **in memory**, so the real durabili
 - **NEVER expose CDP (`:9222`) or noVNC (`:6080`) publicly.** No Ingress, no LoadBalancer, no public `-p 0.0.0.0:...`. Bind to `127.0.0.1` for `docker run`; use a `ClusterIP` Service (never `LoadBalancer`/`NodePort`) in K8s and reach the ports via `kubectl port-forward` or an in-cluster sidecar.
 - **Run behind a NetworkPolicy.** Default-deny ingress to the pod; allow only the specific agent workload(s) that need CDP, and only the human-login path to noVNC. CDP has **no authentication of its own** — network isolation *is* its access control.
 - **Set `VNC_PASSWORD`.** Unset means the noVNC login screen is open (`-nopw`). It is the only auth gate in front of interactive control.
-- **`--no-sandbox` is required** when the container can't use host user namespaces (the common case in CI/K8s without user-ns remap). It disables Chromium's sandbox, so it is **acceptable only inside a confined, isolated pod** — non-root user (`runAsNonRoot`), `drop: ["ALL"]` capabilities, `allowPrivilegeEscalation: false`, a seccomp/AppArmor profile, a dedicated namespace, and the NetworkPolicy above. Don't run it loose.
+- **Runs non-root with the sandbox ON.** The container starts Chromium as uid 1000 and keeps the renderer sandbox (no `--no-sandbox`). This needs a node that allows unprivileged user namespaces (`kernel.unprivileged_userns_clone=1`); verify before deploying. On K8s, set `securityContext.runAsUser: 1000` and chown `PROFILE_DIR` to it (an init-container `chown -R 1000:1000 /data` handles an existing root-owned volume). If a locked-down node blocks the namespace sandbox the container will crashloop — only then fall back to `--no-sandbox` via `CHROME_EXTRA_FLAGS`, and only inside a confined pod (dropped caps, `allowPrivilegeEscalation: false`, seccomp, dedicated namespace, the NetworkPolicy above).
 - **No secrets in the image.** The login and cookies live **only** on the runtime `PROFILE_DIR` volume, created when a human logs in via noVNC. The image ships **zero** credentials — anyone who pulls it gets an *empty* browser. The identity lives with the volume, so guard the volume (and its backups/snapshots) like the credentials they effectively are.
