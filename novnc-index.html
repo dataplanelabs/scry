@@ -1,0 +1,17 @@
+<!doctype html>
+<meta charset="utf-8">
+<title>scry</title>
+<!-- Force connect params from the page origin so the VNC socket scheme tracks the
+     page (https->wss, http->ws) — fixes noVNC's mixed-content ws://-over-https error
+     behind the TLS ingress. URL params override stale localStorage (UI.initSetting). -->
+<script>
+  var l = location;
+  var enc = l.protocol === 'https:' ? 1 : 0;
+  var port = l.port || (enc ? 443 : 80);
+  var q = 'autoconnect=true&reconnect=true&resize=scale'
+        + '&encrypt=' + enc
+        + '&host=' + encodeURIComponent(l.hostname)
+        + '&port=' + port
+        + '&path=websockify';
+  l.replace('vnc.html?' + q);
+</script>

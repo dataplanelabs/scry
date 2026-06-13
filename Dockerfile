@@ -16,8 +16,16 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
       ca-certificates \
       fonts-liberation fonts-noto-cjk \
       dumb-init procps \
-    && rm -rf /var/lib/apt/lists/* \
-    && ln -sf /usr/share/novnc/vnc.html /usr/share/novnc/index.html
+    && rm -rf /var/lib/apt/lists/*
+
+# Serve `/` as a redirect into noVNC with connect params forced from the page
+# origin (https->wss, http->ws), instead of the bare vnc.html symlink whose
+# stale saved `encrypt` setting builds ws:// over https and the browser blocks it
+# (mixed content). The grep is a regression guard: an index.html that can't derive
+# the scheme from the page protocol fails the build. /vnc.html keeps the full UI.
+COPY novnc-index.html /usr/share/novnc/index.html
+RUN grep -q "protocol === 'https:'" /usr/share/novnc/index.html \
+ && grep -q 'path=websockify' /usr/share/novnc/index.html
 
 COPY start.sh /usr/local/bin/start.sh
 RUN chmod +x /usr/local/bin/start.sh
