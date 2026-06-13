@@ -40,6 +40,9 @@ sleep 2
 #       windows / --disable-renderer-backgrounding : a headful tab nobody is
 #       looking at gets throttled/suspended, which stalls CDP commands and
 #       drops the long-lived debugger socket. Keep the page hot.
+#   --restore-last-session + NO positional URL : reopen the last tabs after a roll;
+#       a startup URL (e.g. about:blank) overrides restore, so the browser comes
+#       back blank and drops the logged-in tab on every restart.
 chromium \
   --disable-dev-shm-usage \
   --disable-gpu \
@@ -55,7 +58,7 @@ chromium \
   --window-size="${WIN_W},${WIN_H}" --start-maximized \
   --restore-last-session \
   $CHROME_EXTRA_FLAGS \
-  about:blank >/tmp/chromium.log 2>&1 &
+  >/tmp/chromium.log 2>&1 &
 CHROMIUM_PID=$!
 
 # Forward pod SIGTERM to Chromium and wait for its clean exit so cookies + session
