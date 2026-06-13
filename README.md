@@ -95,7 +95,7 @@ docker run --rm \
 
 Then:
 
-1. **Log in once.** Open `http://127.0.0.1:6080/`, enter `VNC_PASSWORD`, and use the real Chromium to sign into your target site(s). MFA, captchas, consent banners — all fine, you're a human at a keyboard.
+1. **Log in once.** Open `http://127.0.0.1:6080/`, enter `VNC_PASSWORD`, and use the real Chromium to sign into your target site(s). MFA, captchas, consent banners — all fine, you're a human at a keyboard. `/` auto-connects, scales to fit, and derives the WebSocket scheme from the page (`https→wss`, `http→ws`) so it works both via `port-forward` and behind a TLS ingress; `/vnc.html` is the full manual UI.
 2. **Drive it from an agent.** Point any CDP client at `http://127.0.0.1:9222`:
    ```sh
    curl -s http://127.0.0.1:9222/json/version   # sanity check
